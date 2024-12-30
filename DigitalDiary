@@ -1,0 +1,117 @@
+   import javafx.application.Application;
+import javafx.geometry.Insets;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
+
+import java.io.*;
+import java.nio.file.*;
+import java.util.ArrayList;
+import java.util.List;
+
+public class UserSpecificEntryApp extends Application {
+
+    private static final String BASE_DIRECTORY = "user_data";
+    private ListView<String> entryListView;
+    private String currentUsername;
+
+    public static void main(String[] args) {
+        launch(args);
+    }
+
+    @Override
+    public void start(Stage primaryStage) {
+        primaryStage.setTitle("User-Specific Entry Application");
+
+        // UI Elements
+        TextField usernameField = new TextField();
+        usernameField.setPromptText("Enter Username");
+        Button loginButton = new Button("Login");
+
+        TextField entryField = new TextField();
+        entryField.setPromptText("Enter new entry");
+        Button addButton = new Button("Add Entry");
+        
+        entryListView = new ListView<>();
+
+        VBox layout = new VBox(10);
+        layout.setPadding(new Insets(10));
+        layout.getChildren().addAll(usernameField, loginButton, entryField, addButton, entryListView);
+
+        // Event Handlers
+        loginButton.setOnAction(e -> {
+            String username = usernameField.getText().trim();
+            if (!username.isEmpty()) {
+                currentUsername = username;
+                loadEntries();
+                usernameField.setDisable(true);
+                loginButton.setDisable(true);
+            } else {
+                showAlert(Alert.AlertType.ERROR, "Login Error", "Username cannot be empty!");
+            }
+        });
+
+        addButton.setOnAction(e -> {
+            String newEntry = entryField.getText().trim();
+            if (!newEntry.isEmpty()) {
+                entryListView.getItems().add(newEntry);
+                entryField.clear();
+                saveEntries();
+            }
+        });
+
+        primaryStage.setOnCloseRequest(e -> saveEntries());
+
+        primaryStage.setScene(new Scene(layout, 400, 300));
+        primaryStage.show();
+    }
+
+    private void loadEntries() {
+        entryListView.getItems().clear();
+        Path filePath = getUserFilePath();
+
+        if (Files.exists(filePath)) {
+            try (BufferedReader reader = new BufferedReader(new FileReader(filePath.toFile()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    entryListView.getItems().add(line);
+                }
+            } catch (IOException e) {
+                showAlert(Alert.AlertType.ERROR, "Load Error", "Failed to load entries.");
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void saveEntries() {
+        if (currentUsername == null) return;
+
+        Path filePath = getUserFilePath();
+        try {
+            Files.createDirectories(filePath.getParent());
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath.toFile()))) {
+                for (String entry : entryListView.getItems()) {
+                    writer.write(entry);
+                    writer.newLine();
+                }
+            }
+        } catch (IOException e) {
+            showAlert(Alert.AlertType.ERROR, "Save Error", "Failed to save entries.");
+            e.printStackTrace();
+        }
+    }
+
+    private Path getUserFilePath() {
+        return Paths.get(BASE_DIRECTORY, currentUsername + ".csv");
+    }
+
+    private void showAlert(Alert.AlertType alertType, String title, String message) {
+        Alert alert = new Alert(alertType);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+}
+
